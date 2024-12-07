@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTML Compiler</title>
+    
+    <!-- CSS -->
+    <style>
+        /* Global Styles */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #fff;
+            color: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+        }
+
+        /* Sidebar and Preview Styles */
+        .sidebar, .preview {
+            min-width: 0;
+            flex-shrink: 1;
+        }
+
+        .sidebar {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            color: #000;
+            overflow: hidden;
+            transition: none;
+        }
+
+        /* Tabs Container */
+        .tabs-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ccc;
+            padding: 0 10px; /* Adjusted padding for spacing */
+        }
+
+        .tabs {
+            display: flex;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            border-right: 1px solid #ccc;
+            background: #e9e9e9;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .tab:last-child {
+            border-right: none;
+        }
+
+        .tab.active {
+            background: #fff;
+            border-bottom: 1px solid #fff;
+        }
+
+        /* Run, Download, and Import Buttons */
+        .button-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: flex-end; /* Align buttons to the right */
+        }
+
+        /* Change Download and Import buttons to green */
+        .download-button, .import-button {
+            padding: 8px 15px;
+            font-size: 14px;
+            background: #28a745; /* Green background */
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .download-button:hover, .import-button:hover {
+            background: #1e7e34; /* Darker green on hover */
+        }
+
+        /* Keep Run button blue */
+        .run-button {
+            padding: 8px 15px;
+            font-size: 14px;
+            background: #007BFF; /* Blue background */
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .run-button:hover {
+            background: #0056b3; /* Darker blue on hover */
+        }
+
+        /* Sidebar Content */
+        .sidebar-content {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            padding: 0px; /* Reduced padding for closer fit */
+        }
+
+        /* Tab Panels */
+        .tab-panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            margin: 0;
+            padding: 0;
+            min-height: 0; /* Allows shrinking */
+        }
+
+        .tab-panel.active {
+            display: flex;
+        }
+
+        /* Resizer Styles */
+        .resizer {
+            width: 5px;
+            background: #666;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+
+        .resizer:hover {
+            background: #333;
+        }
+
+        /* Preview Styles */
+        .preview {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            position: relative;
+            background: #fff;
+            transition: none;
+            overflow: hidden;
+        }
+
+        .preview iframe {
+            flex: 1;
+            border: none;
+            width: 100%;
+            display: block;
+            background: #fff;
+            min-width: 0;
+        }
+
+        .preview-controls {
+            background: #f5f5f5;
+            border-top: 1px solid #ccc;
+            padding: 5px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 5px;
+        }
+
+        /* Updated: Change Fullscreen and Close buttons to red */
+        .preview-controls button {
+            padding: 5px 10px;
+            background: #dc3545; /* Red background */
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .preview-controls button:hover {
+            background: #c82333; /* Darker red on hover */
+        }
+
+        body.transitioning .sidebar, 
+        body.transitioning .resizer, 
+        body.transitioning .preview {
+            transition: width 0.3s ease;
+        }
+
+        body.closing {
+            transition: opacity 0.5s ease;
+            opacity: 0;
+        }
+
+        :fullscreen, :-webkit-full-screen, :-moz-full-screen {
+            background: #fff !important;
+            color: #000 !important;
+        }
+
+        /* Console Panel Styles */
+        #consolePanel {
+            background: #f5f5f5;
+            color: #333;
+            font-family: Consolas, 'Courier New', monospace;
+            box-sizing: border-box;
+            max-height: 100%;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 15px;
+            border-radius: 0px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #consoleOutput {
+            background: #ffffff;
+            color: #007BFF;
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-height: 0; /* Allows shrinking */
+        }
+
+        #consoleInput {
+            background: #ffffff;
+            color: #333;
+            font-family: Consolas, 'Courier New', monospace;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            box-sizing: border-box;
+            outline: none;
+            width: 100%;
+            font-size: 14px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        #consoleInput::placeholder {
+            color: #999;
+        }
+
+        #consoleInput:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.5); /* Blue glow on focus */
+        }
+
+        /* Log and Error Message Styles */
+        .log {
+            color: #007BFF;
+        }
+
+        .error {
+            color: #FF4136;
+        }
+
+        /* CodeMirror Styles */
+        .CodeMirror {
+            height: 100%;
+            flex: 1;
+            margin: 0;
+            padding: 0;
+            overflow: auto; /* Enables scrolling */
+        }
+
+        /* Editor Containers */
+        #htmlEditor, #cssEditor, #jsEditor {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            min-height: 0; /* Allows shrinking */
+            overflow: hidden; /* Prevents overflow outside the container */
+        }
+
+        /* Optional: Remove internal padding/margins from editor containers if needed */
+        #htmlEditor, #cssEditor, #jsEditor {
+            padding: 0;
+        }
+
+        /* Hidden File Input for Import */
+        #importFileInput {
+            display: none;
+        }
+    </style>
+    
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="tabs-container">
+            <div class="tabs" id="tabs">
+                <div class="tab active" data-tab="htmlPanel">HTML</div>
+                <div class="tab" data-tab="cssPanel">CSS</div>
+                <div class="tab" data-tab="jsPanel">JS</div>
+                <div class="tab" data-tab="consolePanel">Console</div>
+            </div>
+            <div class="button-group">
+                <!-- New Order: Run, Download, Import -->
+                <button class="run-button" onclick="runCode()">Run</button>
+                <button class="download-button" onclick="downloadCode()">Download</button>
+                <button class="import-button" onclick="triggerImport()">Import</button>
+            </div>
+            <!-- Hidden File Input for Import -->
+            <input type="file" id="importFileInput" accept=".json" onchange="importCode(event)">
+        </div>
+        <div class="sidebar-content" id="sidebar-content">
+            <div class="tab-panel active" id="htmlPanel">
+                <div id="htmlEditor"></div>
+            </div>
+            <div class="tab-panel" id="cssPanel">
+                <div id="cssEditor"></div>
+            </div>
+            <div class="tab-panel" id="jsPanel">
+                <div id="jsEditor"></div>
+            </div>
+            <div class="tab-panel" id="consolePanel">
+                <pre id="consoleOutput"></pre>
+                <input id="consoleInput" placeholder="Type JS code here and press Enter..." />
+            </div>
+        </div>
+    </div>
+    <div class="resizer" id="resizer"></div> <!-- Changed to always display -->
+    <div class="preview" id="preview">
+        <iframe id="outputFrame"></iframe>
+        <div class="preview-controls">
+            <button onclick="toggleFullscreen()">Fullscreen</button>
+            <button onclick="closePreview()">Close</button>
+        </div>
+    </div>
+    
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <!-- CodeMirror Modes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+    
+    <script>
+        const commonConfig = {
+            lineNumbers: true,
+            tabSize: 4,
+            indentWithTabs: true,
+            indentUnit: 4,
+            smartIndent: true,
+            lineWrapping: true,
+            viewportMargin: Infinity,
+            styleActiveLine: true
+        };
+
+        const htmlEditor = CodeMirror(document.getElementById('htmlEditor'), {
+            ...commonConfig,
+            mode: 'htmlmixed'
+        });
+        htmlEditor.refresh();
+
+        const cssEditor = CodeMirror(document.getElementById('cssEditor'), {
+            ...commonConfig,
+            mode: 'css'
+        });
+        cssEditor.refresh();
+
+        const jsEditor = CodeMirror(document.getElementById('jsEditor'), {
+            ...commonConfig,
+            mode: 'javascript'
+        });
+        jsEditor.refresh();
+
+        let isResizing = false;
+        const sidebar = document.getElementById('sidebar');
+        const resizer = document.getElementById('resizer');
+        const preview = document.getElementById('preview');
+        const iframe = document.getElementById('outputFrame');
+        const body = document.body;
+        const consoleInput = document.getElementById('consoleInput');
+        const consoleOutput = document.getElementById('consoleOutput');
+        const importFileInput = document.getElementById('importFileInput');
+
+        // Tab switching
+        const tabs = document.querySelectorAll('.tab');
+        const panels = document.querySelectorAll('.tab-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                tab.classList.add('active');
+                const panelId = tab.getAttribute('data-tab');
+                document.getElementById(panelId).classList.add('active');
+
+                // Refresh editors
+                if (panelId === 'htmlPanel') htmlEditor.refresh();
+                if (panelId === 'cssPanel') cssEditor.refresh();
+                if (panelId === 'jsPanel') jsEditor.refresh();
+            });
+        });
+
+        // Resizer functionality
+        resizer.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            isResizing = true;
+            body.classList.remove('transitioning');
+            document.body.style.userSelect = 'none';
+            resizer.setPointerCapture(e.pointerId);
+        });
+
+        resizer.addEventListener('pointermove', (e) => {
+            if (!isResizing) return;
+            const newWidth = e.clientX;
+
+            // Remove min and max constraints
+            // Optionally, you can set a very small minWidth to prevent complete collapse
+            const minWidth = 0; // Allow full collapse
+            const maxWidth = window.innerWidth; // Allow full expansion
+
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                sidebar.style.width = `${newWidth}px`;
+                htmlEditor.refresh();
+                cssEditor.refresh();
+                jsEditor.refresh();
+            }
+        });
+
+        resizer.addEventListener('pointerup', () => {
+            isResizing = false;
+            document.body.style.userSelect = 'auto';
+        });
+
+        // Adjust resizer position on window resize
+        window.addEventListener('resize', () => {
+            // Optional: Handle any necessary adjustments when the window is resized
+        });
+
+        // Run Code
+        function runCode() {
+            const htmlCode = htmlEditor.getValue();
+            const cssCode = cssEditor.getValue();
+            const jsCode = jsEditor.getValue();
+
+            let combinedCode = htmlCode;
+
+            if (cssCode.trim()) {
+                if (combinedCode.includes('</head>')) {
+                    combinedCode = combinedCode.replace('</head>', `<style>${cssCode}</style></head>`);
+                } else {
+                    combinedCode = `<!DOCTYPE html>
+<html>
+<head><style>${cssCode}</style></head>` + combinedCode.replace(/<!DOCTYPE html>\s*<html[^>]*>/i, "");
+                }
+            }
+
+            const scriptTag = `<script>
+window.addEventListener('error', function(e) {
+    window.parent.postMessage({type:'error',message:e.message,stack:e.error?e.error.stack:''}, '*');
+});
+
+var originalLog = console.log;
+console.log = function(...args){
+    window.parent.postMessage({type:'log',message:args.join(' ')},'*');
+    originalLog.apply(console,args);
+};
+
+var originalError = console.error;
+console.error = function(...args){
+    window.parent.postMessage({type:'error',message:args.join(' ')},'*');
+    originalError.apply(console,args);
+};
+
+window.addEventListener('message', function(ev) {
+    if (ev.data && ev.data.type === 'run') {
+        try {
+            let result = eval(ev.data.code);
+            if (result !== undefined) {
+                window.parent.postMessage({type:'log',message:String(result)}, '*');
+            }
+        } catch(e) {
+            window.parent.postMessage({type:'error',message:e.message},'*');
+        }
+    }
+});
+<\/script><script>${jsCode}<\/script>`;
+
+            if (combinedCode.includes('</body>')) {
+                combinedCode = combinedCode.replace('</body>', `${scriptTag}</body>`);
+            } else if (combinedCode.includes('</html>')) {
+                combinedCode = combinedCode.replace('</html>', `${scriptTag}</html>`);
+            } else {
+                combinedCode += scriptTag;
+            }
+
+            consoleOutput.innerHTML = '';
+            iframe.srcdoc = combinedCode;
+            body.classList.add('transitioning');
+            preview.style.display = 'flex';
+
+            requestAnimationFrame(() => {
+                sidebar.style.width = '50%';
+                htmlEditor.refresh();
+                cssEditor.refresh();
+                jsEditor.refresh();
+            });
+        }
+
+        // Download Code with Custom Filename
+        function downloadCode() {
+            const htmlCode = htmlEditor.getValue();
+            const cssCode = cssEditor.getValue();
+            const jsCode = jsEditor.getValue();
+
+            const codeObject = {
+                html: htmlCode,
+                css: cssCode,
+                js: jsCode
+            };
+
+            const codeStr = JSON.stringify(codeObject, null, 4);
+            const blob = new Blob([codeStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            // Prompt user for filename
+            let filename = prompt("Enter the filename for your code download (without extension, no special characters):", "code_backup");
+            if (filename === null) {
+                // User cancelled the prompt
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            // Sanitize filename (remove invalid characters)
+            filename = filename.trim().replace(/[^a-z0-9_\-]/gi, '_');
+            if (filename === "") {
+                filename = "code_backup";
+            }
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.json`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+        }
+
+        // Trigger Import Button
+        function triggerImport() {
+            importFileInput.click();
+        }
+
+        // Import Code
+        function importCode(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const codeObject = JSON.parse(e.target.result);
+                    if (codeObject.html !== undefined && codeObject.css !== undefined && codeObject.js !== undefined) {
+                        htmlEditor.setValue(codeObject.html);
+                        cssEditor.setValue(codeObject.css);
+                        jsEditor.setValue(codeObject.js);
+                        alert('Code imported successfully!');
+                        runCode(); // Optionally run the imported code
+                    } else {
+                        alert('Invalid file format. Please select a valid code backup file.');
+                    }
+                } catch (error) {
+                    alert('Error reading the file. Please ensure it is a valid JSON file.');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset the input value to allow importing the same file again if needed
+            importFileInput.value = '';
+        }
+
+        // Fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                iframe.requestFullscreen().catch(err => {
+                    console.error("Error enabling fullscreen:", err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Close Preview (Modified to only minimize without deleting content)
+        function closePreview() {
+            // Animate sidebar to full width
+            body.classList.add('transitioning');
+            sidebar.style.width = '100%';
+            htmlEditor.refresh();
+            cssEditor.refresh();
+            jsEditor.refresh();
+
+            // Hide the preview but keep iframe content intact
+            //preview.style.display = 'none';
+            // Note: Removed setTimeout to avoid delayed hiding which isn't necessary here
+        }
+
+        // Run on load
+        window.onload = runCode;
+
+        // Handle Messages
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type) {
+                let messageElement = document.createElement('div');
+                if (event.data.type === 'log') {
+                    messageElement.textContent = event.data.message;
+                    messageElement.classList.add('log');
+                } else if (event.data.type === 'error') {
+                    messageElement.textContent = `Error: ${event.data.message}`;
+                    messageElement.classList.add('error');
+                }
+                consoleOutput.appendChild(messageElement);
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        });
+
+        // Console Input
+        consoleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const code = consoleInput.value.trim();
+                if (code) {
+                    iframe.contentWindow.postMessage({type:'run', code}, '*');
+                    consoleInput.value = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
